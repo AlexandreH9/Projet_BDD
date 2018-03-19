@@ -1,0 +1,103 @@
+version: '3'
+
+  ## Creation Network
+
+networks:
+  my_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+services: 
+
+  ## Cluster MongoDB
+
+  master_mongo: 
+    container_name: "master_mongo"
+    image: mongo:3.6.3
+    ports: 
+      - "30011:30011"
+    networks:
+      my_net:
+        ipv4_address: 172.30.0.2
+    volumes:
+      - ./scripts:/scripts
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip", "0.0.0.0", "--replSet", "cluster_mongo", "--port", "30011" ]
+
+  slave_mongo1: 
+    container_name: "slave_mongo1"
+    image: mongo:3.6.3
+    expose: 
+      - "30012"
+    networks:
+      my_net:
+        ipv4_address: 172.30.0.3
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip", "0.0.0.0", "--replSet", "cluster_mongo", "--port", "30012" ]
+
+  slave_mongo2: 
+    container_name: "slave_mongo2"
+    image: mongo:3.6.3
+    expose: 
+      - "30013"
+    networks:
+      my_net:
+        ipv4_address: 172.30.0.4
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip", "0.0.0.0", "--replSet", "cluster_mongo", "--port", "30013" ]
+
+
+  ## Cluster Mysql
+
+  master_mysql:
+    container_name: "master_mysql"
+    image: bitnami/mysql:latest
+    ports:
+      - "3306:3306"
+    networks:
+      my_net:
+        ipv4_address: 172.30.0.12
+    volumes:
+      - ./scripts:/scripts
+    environment:
+      - MYSQL_REPLICATION_MODE=master
+      - MYSQL_REPLICATION_USER=my-user
+      - MYSQL_USER=User
+      - MYSQL_DATABASE=weather
+      - ALLOW_EMPTY_PASSWORD=yes
+
+
+  slave_mysql:
+    container_name: "slave_mysql"
+    image: bitnami/mysql:latest
+    ports:
+      - "3305:3306"
+    networks:
+      my_net:
+        ipv4_address: 172.30.0.13
+    depends_on: 
+      - master_mysql
+    environment:
+      - MYSQL_REPLICATION_MODE=slave
+      - MYSQL_REPLICATION_USER=my-user
+      - MYSQL_USER=User
+      - MYSQL_DATABASE=weather
+      - MYSQL_MASTER_HOST=master_mysql
+      - MYSQL_MASTER_PORT_NUMBER=3306
+      - ALLOW_EMPTY_PASSWORD=yes
+
+
+  ## Server Node
+
+  serv_node:
+    container_name: "serv_node"
+    build: . 
+    expose:
+      - "80"
+    networks:
+      my_net:
+        ipv4_address: 172.30.0.10
+
+
+
+
+
